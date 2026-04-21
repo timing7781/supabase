@@ -1,120 +1,163 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <title>Профиль</title>
-  <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+<meta charset="UTF-8">
+<title>Профиль</title>
 
-    const URL = "ТВОЙ_SUPABASE_URL";
-    const KEY = "ТВОЙ_SUPABASE_ANON_KEY";
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
 
-    const supabase = createClient(URL, KEY);
+const supabase = createClient(
+  "ТВОЙ_URL",
+  "ТВОЙ_KEY"
+);
 
-    async function loginGoogle() {
-      await supabase.auth.signInWithOAuth({
-        provider: 'google'
-      });
-    }
+// вход через Google
+async function loginGoogle() {
+  await supabase.auth.signInWithOAuth({
+    provider: 'google'
+  });
+}
 
-    async function checkUser() {
-      const { data } = await supabase.auth.getUser();
+// получить пользователя
+async function getUser() {
+  const { data } = await supabase.auth.getUser();
+  return data.user;
+}
 
-      if (data.user) {
-        document.getElementById("status").innerText =
-          "Вы вошли как: " + data.user.email;
-      }
-    }
+// создать профиль если нет
+async function createProfile(user) {
+  await supabase.from('profiles').upsert({
+    id: user.id,
+    email: user.email
+  });
+}
 
-    window.loginGoogle = loginGoogle;
-    window.onload = checkUser;
-  </script>
+// получить статус
+async function getStatus(user) {
+  const { data } = await supabase
+    .from('profiles')
+    .select('status')
+    .eq('id', user.id)
+    .single();
 
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial;
-      background: #f3f4f6;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
+  if (data) {
+    document.getElementById("statusText").innerText =
+      "Статус: " + (data.status || "не указан");
+  }
+}
 
-    .container {
-      width: 320px;
-    }
+// изменить статус
+async function setStatus(status) {
+  const user = await getUser();
 
-    .card {
-      background: white;
-      border-radius: 10px;
-      padding: 20px;
-      margin-bottom: 15px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      text-align: center;
-    }
+  await supabase.from('profiles').update({
+    status: status
+  }).eq('id', user.id);
 
-    h3 {
-      margin: 0 0 10px;
-    }
+  document.getElementById("statusText").innerText =
+    "Статус: " + status;
+}
 
-    .btn {
-      display: block;
-      width: 100%;
-      padding: 10px;
-      margin-top: 10px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: bold;
-    }
+// загрузка страницы
+window.onload = async () => {
+  const user = await getUser();
 
-    .green { background: #22c55e; color: white; }
-    .yellow { background: #facc15; }
-    .gray { background: #9ca3af; color: white; }
+  if (user) {
+    document.getElementById("email").innerText = user.email;
+    await createProfile(user);
+    await getStatus(user);
+  }
+};
 
-    .google {
-      background: white;
-      border: 1px solid #ddd;
-    }
+window.loginGoogle = loginGoogle;
+window.setStatus = setStatus;
 
-    .google img {
-      width: 18px;
-      vertical-align: middle;
-      margin-right: 8px;
-    }
+</script>
 
-    .small {
-      font-size: 14px;
-      color: gray;
-    }
-  </style>
+<style>
+body {
+  background: #f3f4f6;
+  font-family: Arial;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.container {
+  width: 320px;
+}
+
+.card {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 15px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  text-align: center;
+}
+
+.btn {
+  width: 100%;
+  padding: 10px;
+  margin-top: 8px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.green { background: #22c55e; color: white; }
+.yellow { background: #facc15; }
+.gray { background: #9ca3af; color: white; }
+
+.google {
+  background: white;
+  border: 1px solid #ddd;
+}
+
+.small {
+  font-size: 14px;
+  color: gray;
+}
+</style>
+
 </head>
 
 <body>
 
 <div class="container">
 
+  <!-- Карточка профиля -->
   <div class="card">
     <h3>Мой профиль</h3>
-    <p class="small">Вы можете войти</p>
 
-    <button class="btn green">Вход</button>
-    <button class="btn yellow">Регистрация</button>
+    <p id="email" class="small">Вы не вошли</p>
 
     <button class="btn google" onclick="loginGoogle()">
-      <img src="https://www.svgrepo.com/show/355037/google.svg">
       Войти через Google
     </button>
 
-    <button class="btn gray">Выход</button>
+    <p id="statusText" class="small">Статус: не указан</p>
 
-    <p id="status" class="small"></p>
+    <button class="btn green" onclick="setStatus('Учусь')">
+      Я учусь
+    </button>
+
+    <button class="btn yellow" onclick="setStatus('Работаю')">
+      Я работаю
+    </button>
+
+    <button class="btn gray" onclick="setStatus('Не указано')">
+      Сбросить
+    </button>
   </div>
 
+  <!-- Блок данных -->
   <div class="card">
-    <h3>Данные входа</h3>
-    <p class="small">Email появится после входа</p>
+    <h3>Данные профиля</h3>
+    <p class="small">Статус сохраняется в базе</p>
   </div>
 
 </div>
