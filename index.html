@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Профиль</title>
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+
+    const URL = "ТВОЙ_SUPABASE_URL";
+    const KEY = "ТВОЙ_SUPABASE_ANON_KEY";
+
+    const supabase = createClient(URL, KEY);
+
+    async function loginGoogle() {
+      await supabase.auth.signInWithOAuth({
+        provider: 'google'
+      });
+    }
+
+    async function checkUser() {
+      const { data } = await supabase.auth.getUser();
+
+      if (data.user) {
+        document.getElementById("status").innerText =
+          "Вы вошли как: " + data.user.email;
+      }
+    }
+
+    window.loginGoogle = loginGoogle;
+    window.onload = checkUser;
+  </script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial;
+      background: #f3f4f6;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .container {
+      width: 320px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 15px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+    }
+
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .green { background: #22c55e; color: white; }
+    .yellow { background: #facc15; }
+    .gray { background: #9ca3af; color: white; }
+
+    .google {
+      background: white;
+      border: 1px solid #ddd;
+    }
+
+    .google img {
+      width: 18px;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+
+    .small {
+      font-size: 14px;
+      color: gray;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <div class="card">
+    <h3>Мой профиль</h3>
+    <p class="small">Вы можете войти</p>
+
+    <button class="btn green">Вход</button>
+    <button class="btn yellow">Регистрация</button>
+
+    <button class="btn google" onclick="loginGoogle()">
+      <img src="https://www.svgrepo.com/show/355037/google.svg">
+      Войти через Google
+    </button>
+
+    <button class="btn gray">Выход</button>
+
+    <p id="status" class="small"></p>
+  </div>
+
+  <div class="card">
+    <h3>Данные входа</h3>
+    <p class="small">Email появится после входа</p>
+  </div>
+
+</div>
+
+</body>
+</html>
