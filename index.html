@@ -507,7 +507,17 @@
 @keyframes typing-blink {
     0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
     40% { opacity: 1; transform: scale(1.2); }
-}    </style>
+}    
+.reaction-badge {
+    margin-top: 6px;
+    font-size: 0.8rem;
+    opacity: 0.9;
+}
+
+#typingBubble {
+    width: fit-content;
+}
+</style>
 </head>
 <body>
 
@@ -563,22 +573,22 @@
 
     <div class="card" id="chatSection" style="display:none;">
     <h2>💬 Корпоративный чат</h2>
-    <div id="chatBox">
-    <div id="typingBubble" class="typing-bubble" style="display:none; margin-bottom: 10px;">
-        <div style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 4px;" id="typingUser">Кто-то печатает</div>
+
+    <div id="chatBox"></div>
+
+    <div id="typingBubble" class="typing-bubble" style="display:none; margin-top:10px;">
+        <div style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 4px;" id="typingUser">
+            Кто-то печатает
+        </div>
+
         <div class="typing-dots">
             <span></span>
             <span></span>
             <span></span>
         </div>
     </div>
-        <div id="typingBubble" class="typing-bubble">
-            <div style="font-size: 0.7rem; color: #94a3b8; margin-bottom: 4px;" id="typingUser">Кто-то печатает</div>
-            <div class="typing-dots"><span></span><span></span><span></span></div>
-        </div>
-    </div>
-    
-    <div class="reaction-bar" style="display: flex; gap: 8px; margin-bottom: 10px; justify-content: center;">
+
+    <div class="reaction-bar" style="display: flex; gap: 8px; margin-bottom: 10px; justify-content: center; margin-top: 12px;">
         <button class="status-option" style="padding: 5px 12px;" onclick="window.sendReaction('👍')">👍</button>
         <button class="status-option" style="padding: 5px 12px;" onclick="window.sendReaction('🔥')">🔥</button>
         <button class="status-option" style="padding: 5px 12px;" onclick="window.sendReaction('❤️')">❤️</button>
@@ -590,6 +600,7 @@
         <button class="btn-send" onclick="window.sendMessage()">➡</button>
     </div>
 </div>
+    
 <script type="module">
     // Интеграция с Supabase SDK через ESM
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
@@ -1296,15 +1307,7 @@
             `;
         }).join('');
     }
-    window.sendReaction = async (emoji) => {
-    if (!currentUser) return; // Добавил проверку, чтобы не падало без входа
-    const channel = supabase.channel('chat_room');
-    await channel.send({
-        type: 'broadcast',
-        event: 'reaction_event',
-        payload: { user: getDisplayName(), emoji: emoji }
-    });
-};
+    
     window.sendMessage = async () => {
         const input = document.getElementById('chatInput');
         const text = input.value.trim();
@@ -1356,110 +1359,152 @@
     };
 
     async function fetchMessages() {
-        const { data, error } = await supabase.from('messages').select('*').order('created_at', { ascending: false }).limit(25);
-        const chatBox = document.getElementById('chatBox');
+    const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(25);
 
-        if (error) {
-            console.error('Ошибка загрузки сообщений:', error.message);
-            chatBox.innerHTML = '<div class="empty-state">Не удалось загрузить сообщения.</div>';
-            return;
-        }
+    const chatBox = document.getElementById('chatBox');
 
-        if (data) {
-            chatBox.innerHTML = data.reverse().map(m => {
-                const isMine = currentUser && m.user_id === currentUser.id;
-                const senderName = isMine ? 'Вы' : String(m.username || 'Пользователь').split(' ')[0];
-                return `
-                    <div class="chat-msg ${isMine ? 'my-message' : ''}">
-                        <b>${escapeHtml(senderName)}:</b>
-                        <span>${escapeHtml(m.text)}</span>
-                    </div>
-                `;
-            }).join('');
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }
+    if (error) {
+        console.error('Ошибка загрузки сообщений:', error.message);
+        chatBox.innerHTML = '<div class="empty-state">Не удалось загрузить сообщения.</div>';
+        return;
     }
 
-    // --- НОВАЯ ЛОГИКА ЧАТА (ВСТАВЛЯТЬ СЮДА) ---
+    if (data) {
+        chatBox.innerHTML = data.reverse().map(m => {
+            const isMine = currentUser && m.user_id === currentUser.id;
+            const senderName = isMine
+                ? 'Вы'
+                : String(m.username || 'Пользователь').split(' ')[0];
 
-// 1. Инициализация канала (для печати и реакций)
-// Находим канал и подписываемся на события
-const chatChannel = supabase.channel('chat_room')
-    .on('broadcast', { event: 'typing' }, (payload) => {
-    const bubble = document.getElementById('typingBubble');
-    const userText = document.getElementById('typingUser');
-    
-    // ПРОВЕРКА: реагируем только если пришло четкое true или false
-    if (payload && payload.payload) {
-        const isTyping = payload.payload.isTyping;
-        const typingUserName = payload.payload.user;
+            return `
+                <div class="chat-msg ${isMine ? 'my-message' : ''}">
+                    <b>${escapeHtml(senderName)}:</b>
+                    <span>${escapeHtml(m.text).replace(/\n/g, '<br>')}</span>
+                </div>
+            `;
+        }).join('');
 
-        if (isTyping === true) {
-            userText.innerText = `${typingUserName} печатает...`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+}
+
+    // ================= REALTIME CHAT =================
+
+const chatChannel = supabase.channel('global-chat-room')
+
+.on(
+    'broadcast',
+    { event: 'reaction_event' },
+    (payload) => {
+        const chatBox = document.getElementById('chatBox');
+
+        const note = document.createElement('div');
+
+        note.className = 'chat-msg';
+
+        note.innerHTML = `
+            <b>Реакция</b>
+            <div class="reaction-badge">
+                ${escapeHtml(payload.payload.user)} отправил: ${escapeHtml(payload.payload.emoji)}
+            </div>
+        `;
+
+        chatBox.appendChild(note);
+
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+        setTimeout(() => {
+            note.remove();
+        }, 3000);
+    }
+)
+
+.on(
+    'broadcast',
+    { event: 'typing' },
+    (payload) => {
+
+        const bubble = document.getElementById('typingBubble');
+        const userLabel = document.getElementById('typingUser');
+
+        if (!bubble || !userLabel) return;
+
+        if (
+            payload.payload.isTyping &&
+            payload.payload.user !== getDisplayName().split(' ')[0]
+        ) {
+
+            userLabel.innerText =
+                `${payload.payload.user} печатает...`;
+
             bubble.style.display = 'block';
-            // Прокрутка вниз
-            const chatBox = document.getElementById('chatBox');
-            chatBox.scrollTop = chatBox.scrollHeight;
+
+            clearTimeout(window.typingHideTimeout);
+
+            window.typingHideTimeout = setTimeout(() => {
+                bubble.style.display = 'none';
+            }, 2000);
+
         } else {
             bubble.style.display = 'none';
         }
     }
-})   
- .on('broadcast', { event: 'reaction_event' }, (payload) => {
-        // Тут остается твой код для реакций ( 👍 🔥 и т.д.)
-        const messages = document.querySelectorAll('.chat-msg-bubble');
-        if (messages.length > 0) {
-            const lastMsg = messages[messages.length - 1];
-            let badge = lastMsg.querySelector('.reaction-badge');
-            if (!badge) {
-                badge = document.createElement('div');
-                badge.className = 'reaction-badge';
-                lastMsg.appendChild(badge);
-            }
-            badge.innerHTML = `${payload.payload.emoji} <span style="font-size:0.7rem; opacity:0.7">${payload.payload.user}</span>`;
-        }
-    })
-    .subscribe();
-// 2. Функция отправки реакции
+)
+
+.subscribe((status) => {
+    console.log('Realtime status:', status);
+});
 window.sendReaction = (emoji) => {
     if (!currentUser) return;
+
     chatChannel.send({
         type: 'broadcast',
         event: 'reaction_event',
-        payload: { user: getDisplayName().split(' ')[0], emoji: emoji }
+        payload: {
+            user: getDisplayName().split(' ')[0],
+            emoji: emoji
+        }
     });
 };
 
-// 3. Работа с полем ввода (Enter и Печать)
-// В самом начале скрипта, где все let, убедись что есть это:
-// let typingTimeout = null;
-
 const chatInput = document.getElementById('chatInput');
+
 if (chatInput) {
     chatInput.addEventListener('input', () => {
-        if (!currentUser || !chatChannel) return;
+        if (!currentUser) return;
 
-        // Отправляем сигнал только когда РЕАЛЬНО что-то вводится
         chatChannel.send({
             type: 'broadcast',
             event: 'typing',
-            payload: { 
-                user: getDisplayName().split(' ')[0], 
-                isTyping: true 
+            payload: {
+                user: getDisplayName().split(' ')[0],
+                isTyping: true
             }
         });
 
         clearTimeout(typingTimeout);
+
         typingTimeout = setTimeout(() => {
             chatChannel.send({
                 type: 'broadcast',
                 event: 'typing',
-                payload: { 
-                    user: getDisplayName().split(' ')[0], 
-                    isTyping: false 
+                payload: {
+                    user: getDisplayName().split(' ')[0],
+                    isTyping: false
                 }
             });
-        }, 2000); // Исчезнет через 2 сек после остановки
+        }, 1500);
+    });
+
+    chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            window.sendMessage();
+        }
     });
 }
 
@@ -1474,7 +1519,7 @@ if (chatInput) {
             fetchRanking();
             fetchAchievements();
         }
-    }, 5000);
+    }, 15000);
 </script>
 </body>
 </html>
