@@ -909,28 +909,8 @@
             updateHeartbeat(); 
             if (!heartbeatInterval) {
                 heartbeatInterval = setInterval(updateHeartbeat, 30000); // Каждые 30 сек подтверждаем онлайн
-            }
+            } 
 
-            supabase.channel('chat_room')
-    // 1. Слушаем, кто печатает
-    .on('broadcast', { event: 'typing' }, (payload) => {
-        const el = document.getElementById('typingIndicator');
-        el.innerText = payload.payload.isTyping ? `✍️ ${payload.payload.user} печатает...` : '';
-    })
-    // 2. Слушаем реакции
-    .on('broadcast', { event: 'reaction_event' }, (payload) => {
-        const chatBox = document.getElementById('chatBox');
-        const note = document.createElement('div');
-        note.style.cssText = 'font-size: 0.8rem; text-align: center; color: #3b82f6; background: rgba(255,255,255,0.05); border-radius: 20px; padding: 4px; margin: 5px 0;';
-        note.innerHTML = `${payload.payload.user} отправил: ${payload.payload.emoji}`;
-        
-        chatBox.appendChild(note);
-        chatBox.scrollTop = chatBox.scrollHeight;
-        
-        // Удаляем надпись о реакции через 3 секунды, чтобы не мешала
-        setTimeout(() => note.remove(), 3000);
-    })
-    .subscribe();
         } else {
             // Интерфейс для гостей (OAuth Google)
             infoBox.innerHTML = `
@@ -1482,28 +1462,8 @@ if (chatInput) {
         }, 2000); // Исчезнет через 2 сек после остановки
     });
 }
-    });
 
-    // Индикатор печати (розовые точки)
-    chatInput.addEventListener('input', () => {
-        if (!currentUser) return;
-        chatChannel.send({
-            type: 'broadcast',
-            event: 'typing',
-            payload: { user: getDisplayName().split(' ')[0], isTyping: true }
-        });
-
-        clearTimeout(typingTimeout);
-        typingTimeout = setTimeout(() => {
-            chatChannel.send({
-                type: 'broadcast',
-                event: 'typing',
-                payload: { user: getDisplayName().split(' ')[0], isTyping: false }
-            });
-        }, 2000);
-    });
-}
-    // Инициализация системы
+        // Инициализация системы
     checkUser();
 
     // Фоновое обновление данных
