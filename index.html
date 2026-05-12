@@ -1406,24 +1406,26 @@
 // Находим канал и подписываемся на события
 const chatChannel = supabase.channel('chat_room')
     .on('broadcast', { event: 'typing' }, (payload) => {
-        // --- ВОТ ЭТОТ КУСОК МЫ ОБНОВИЛИ ---
-        console.log("Получен сигнал печати:", payload); // Это поможет нам увидеть, долетает ли сигнал
-        const bubble = document.getElementById('typingBubble');
-        const userText = document.getElementById('typingUser');
-        
-        if (bubble && userText) {
-            if (payload.payload.isTyping) {
-                userText.innerText = `${payload.payload.user} печатает...`;
-                bubble.style.display = 'block';
-                // Прокрутка вниз, чтобы увидеть надпись
-                document.getElementById('chatBox').scrollTop = document.getElementById('chatBox').scrollHeight;
-            } else {
-                bubble.style.display = 'none';
-            }
+    const bubble = document.getElementById('typingBubble');
+    const userText = document.getElementById('typingUser');
+    
+    // ПРОВЕРКА: реагируем только если пришло четкое true или false
+    if (payload && payload.payload) {
+        const isTyping = payload.payload.isTyping;
+        const typingUserName = payload.payload.user;
+
+        if (isTyping === true) {
+            userText.innerText = `${typingUserName} печатает...`;
+            bubble.style.display = 'block';
+            // Прокрутка вниз
+            const chatBox = document.getElementById('chatBox');
+            chatBox.scrollTop = chatBox.scrollHeight;
+        } else {
+            bubble.style.display = 'none';
         }
-        // ----------------------------------
-    })
-    .on('broadcast', { event: 'reaction_event' }, (payload) => {
+    }
+})   
+ .on('broadcast', { event: 'reaction_event' }, (payload) => {
         // Тут остается твой код для реакций ( 👍 🔥 и т.д.)
         const messages = document.querySelectorAll('.chat-msg-bubble');
         if (messages.length > 0) {
@@ -1449,20 +1451,37 @@ window.sendReaction = (emoji) => {
 };
 
 // 3. Работа с полем ввода (Enter и Печать)
+// В самом начале скрипта, где все let, убедись что есть это:
+// let typingTimeout = null;
+
 const chatInput = document.getElementById('chatInput');
 if (chatInput) {
-    // Отправка по Enter
-    chatInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            window.sendMessage();
-            // Сразу выключаем статус "печатает"
+    chatInput.addEventListener('input', () => {
+        if (!currentUser || !chatChannel) return;
+
+        // Отправляем сигнал только когда РЕАЛЬНО что-то вводится
+        chatChannel.send({
+            type: 'broadcast',
+            event: 'typing',
+            payload: { 
+                user: getDisplayName().split(' ')[0], 
+                isTyping: true 
+            }
+        });
+
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => {
             chatChannel.send({
                 type: 'broadcast',
                 event: 'typing',
-                payload: { user: getDisplayName().split(' ')[0], isTyping: false }
+                payload: { 
+                    user: getDisplayName().split(' ')[0], 
+                    isTyping: false 
+                }
             });
-        }
+        }, 2000); // Исчезнет через 2 сек после остановки
+    });
+}
     });
 
     // Индикатор печати (розовые точки)
